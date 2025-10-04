@@ -2,6 +2,7 @@ class WoodpeckerAgent < Formula
   desc "Woodpecker CI agent (exec runner) for macOS with brew services"
   homepage "https://woodpecker-ci.org/"
   license "Apache-2.0"
+  revision 1
 
   # 使用 git 源码构建，免 sha256；如需锁定版本，可换 tag
   url "https://github.com/woodpecker-ci/woodpecker.git",
@@ -10,6 +11,7 @@ class WoodpeckerAgent < Formula
   head "https://github.com/woodpecker-ci/woodpecker.git", branch: "main"
 
   depends_on "go" => :build
+  depends_on "hotwa/woodpecker/woodpecker-plugin-git"
 
   def install
     # Build agent
@@ -25,11 +27,18 @@ class WoodpeckerAgent < Formula
     # default fallback env file (create if not exists)
     env_file = etc/"woodpecker/agent.env"
     unless env_file.exist?
+      raw_name = begin
+        Utils.safe_popen_read("scutil", "--get", "ComputerName").strip
+      rescue StandardError
+        ""
+      end
+      sanitized_name = raw_name.downcase.gsub(/[^a-z0-9_-]+/, "-").gsub(/-+/, "-").gsub(/\A-|-\z/, "")
+      sanitized_name = "mac-agent" if sanitized_name.empty?
       cpu = Hardware::CPU.arm? ? "arm64" : "amd64"
       env_file.write <<~EOS
         # Fallback envs for woodpecker-agent (exec).
         # 启动脚本会先读 launchctl getenv，再读本文件中未定义的变量。
-        WOODPECKER_AGENT_NAME=#{`scutil --get ComputerName`.strip rescue "mac-agent"}
+        WOODPECKER_AGENT_NAME=#{sanitized_name}
         WOODPECKER_SERVER=ci-agent.jmsu.top:443
         WOODPECKER_GRPC_SECURE=true
         WOODPECKER_GRPC_VERIFY=true

@@ -6,9 +6,24 @@ This tap installs `woodpecker-agent` (exec runner) on macOS, runs it as a **Laun
 
 ```bash
 # 替换 <YOUR_GH_USERNAME> 为你的 GitHub 用户名
-brew tap <YOUR_GH_USERNAME>/woodpecker https://github.com/<YOUR_GH_USERNAME>/homebrew-woodpecker.git
+brew tap hotwa/woodpecker https://github.com/hotwa/homebrew-woodpecker.git
+# 看看 tap 里有哪些 formula/cask
+brew tap-info hotwa/woodpecker
+brew search hotwa/woodpecker
+# 或直接列文件：
+ls "$(brew --repo hotwa/woodpecker)"/Formula
 brew install woodpecker-agent
 ```
+
+### 可选：安装 Woodpecker CLI 及常用插件
+
+```bash
+brew install hotwa/woodpecker/woodpecker-cli
+brew install hotwa/woodpecker/woodpecker-plugin-s3
+brew install hotwa/woodpecker/woodpecker-plugin-docker-buildx
+```
+
+> `woodpecker-agent` 会自动拉取 `woodpecker-plugin-git`（clone 步骤必需的本地插件）。
 
 ## 2) 配置环境（两种任选其一，可混用）
 
@@ -39,11 +54,32 @@ launchctl setenv WOODPECKER_HEALTHCHECK_ADDR :3001
 ```bash
 # 安装后生成的默认位置（首次安装已写好样例）
 vi "$(brew --prefix)/etc/woodpecker/agent.env"
+# 写入必要变量（示例）
+cat >"$(brew --prefix)/etc/woodpecker/agent.env" <<'EOF'
+WOODPECKER_AGENT_NAME=macos-m1-01
+WOODPECKER_SERVER=ci-agent.jmsu.top:443
+WOODPECKER_AGENT_SECRET=***************
+WOODPECKER_GRPC_SECURE=true
+WOODPECKER_GRPC_VERIFY=true
+# 可选：标签与并发
+WOODPECKER_MAX_PROCS=1
+WOODPECKER_FILTER_LABELS=gpu=false,os=macos,arch=arm64
+# 切换后端为 Local（exec）
+WOODPECKER_BACKEND=local
+EOF
 # 或拷贝样例：
 # cp extras/agent.env.sample "$(brew --prefix)/etc/woodpecker/agent.env"
 ```
 
+修改后重启
+
+```bash
+brew services restart woodpecker-agent
+tail -f /opt/homebrew/var/log/woodpecker/agent.err.log
+```
+
 启动脚本会“先读 launchctl，再读这个文件”，已有的变量不会被 env 文件覆盖。
+如果某个值包含空格，请确保使用 ASCII 双引号包裹，例如 `WOODPECKER_AGENT_NAME="Mac mini"`。
 
 ## 3) 启动/日志/管理
 
@@ -103,7 +139,9 @@ launchctl getenv WOODPECKER_AGENT_NAME
 ## Notes
 
 - Formula 会从 `github.com/woodpecker-ci/woodpecker` 源码构建 `cmd/agent`（自带 Go 编译）。
+- 默认生成的 fallback `WOODPECKER_AGENT_NAME` 会对 macOS 的 ComputerName 做 slug 化（空格等会替换为 `-`），例如 `Mac mini` → `mac-mini`。
 - 默认将健康检查端口改为 `:3001`（通过 env），避免常见的 `:3000` 冲突。
+- 提供 `woodpecker-cli`、`plugin-git`、`plugin-s3`、`plugin-docker-buildx` 等 Formula，方便在本地 exec 后端装齐常用工具。
 - 该 Tap 仅安装 exec (native) agent。Docker runner 请使用容器方式。
 
 ---
