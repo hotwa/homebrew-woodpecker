@@ -1,0 +1,15 @@
+pipeline:
+  say_hello:
+    labels:
+      platform: darwin/arm64
+    commands:
+      - echo "Hello from macOS"
+      - sw_vers
+
+  metal_job:
+    labels:
+      platform: darwin/arm64
+      gpu: metal
+    commands:
+      - system_profiler SPDisplaysDataType | head -50
+      - echo "Run your Metal build/tests here"

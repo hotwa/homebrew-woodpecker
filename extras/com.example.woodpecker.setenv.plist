@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.woodpecker.setenv</string>
+
+  <!-- 登录时执行 setenv.sh，把 ~/.config/woodpecker/agent.env 注入到 launchd 环境 -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>-lc</string>
+    <string>${HOME}/setenv.sh</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- 可选：每隔一段时间再同步一次 -->
+  <!--
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  -->
+</dict>
+</plist>
