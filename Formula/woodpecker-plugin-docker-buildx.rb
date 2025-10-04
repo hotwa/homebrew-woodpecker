@@ -3,12 +3,18 @@ class WoodpeckerPluginDockerBuildx < Formula
   homepage "https://github.com/woodpecker-ci/plugin-docker-buildx"
   license "Apache-2.0"
 
+  url "https://github.com/woodpecker-ci/plugin-docker-buildx.git",
+      using:  :git,
+      revision: "c88f0f4e73add0c48bf99b310db322f0ed396fee"
+  version "20251004"
   head "https://github.com/woodpecker-ci/plugin-docker-buildx.git", branch: "main"
 
   depends_on "go" => :build
 
   def install
-    system "go", "build", "-trimpath", *std_go_args(output: bin/"plugin-docker-buildx")
+    cd "cmd/docker-buildx" do
+      system "go", "build", "-trimpath", *std_go_args(output: bin/"plugin-docker-buildx")
+    end
   end
 
   test do

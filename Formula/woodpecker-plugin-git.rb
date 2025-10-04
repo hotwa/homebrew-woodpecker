@@ -3,6 +3,10 @@ class WoodpeckerPluginGit < Formula
   homepage "https://github.com/woodpecker-ci/plugin-git"
   license "Apache-2.0"
 
+  url "https://github.com/woodpecker-ci/plugin-git.git",
+      using:  :git,
+      revision: "46c36eb4b313c59ce1345556085d95ed2fbf415a"
+  version "20251004"
   head "https://github.com/woodpecker-ci/plugin-git.git", branch: "main"
 
   depends_on "go" => :build

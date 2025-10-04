@@ -19,11 +19,9 @@ brew install woodpecker-agent
 
 ```bash
 brew install hotwa/woodpecker/woodpecker-cli
-brew install hotwa/woodpecker/woodpecker-plugin-s3
-brew install hotwa/woodpecker/woodpecker-plugin-docker-buildx
 ```
 
-> `woodpecker-agent` 会自动拉取 `woodpecker-plugin-git`（clone 步骤必需的本地插件）。
+> `woodpecker-agent` 会自动安装 `woodpecker-cli`、`plugin-git`、`plugin-s3`、`plugin-docker-buildx` 以及 `git-lfs`，无需手动再装。
 
 安装完成后，可用 `woodpecker-cli --help` 验证 CLI 是否生效。
 首次安装后建议执行 `git lfs install`，以确保 Git LFS 钩子就绪。
