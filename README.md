@@ -25,6 +25,8 @@ brew install hotwa/woodpecker/woodpecker-plugin-docker-buildx
 
 > `woodpecker-agent` 会自动拉取 `woodpecker-plugin-git`（clone 步骤必需的本地插件）。
 
+安装完成后，可用 `woodpecker-cli --help` 验证 CLI 是否生效。
+
 ## 2) 配置环境（两种任选其一，可混用）
 
 **方案 A：使用 launchctl setenv（推荐，登录后即生效）**

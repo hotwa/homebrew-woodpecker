@@ -3,16 +3,12 @@ class WoodpeckerPluginGit < Formula
   homepage "https://github.com/woodpecker-ci/plugin-git"
   license "Apache-2.0"
 
-  url "https://github.com/woodpecker-ci/plugin-git.git",
-      using:  :git,
-      tag:    "v2.6.5",
-      shallow: false
   head "https://github.com/woodpecker-ci/plugin-git.git", branch: "main"
 
   depends_on "go" => :build
 
   def install
-    system "go", "build", "-trimpath", "-o", bin/"plugin-git", "."
+    system "go", "build", "-trimpath", *std_go_args(output: bin/"plugin-git")
   end
 
   test do

@@ -1,23 +1,20 @@
 class WoodpeckerCli < Formula
-  desc "Woodpecker command-line client"
+  desc "Official Woodpecker CI command-line client"
   homepage "https://woodpecker-ci.org/"
   license "Apache-2.0"
 
-  url "https://github.com/woodpecker-ci/woodpecker.git",
-      using:  :git,
-      tag:    "v3.10.0",
-      shallow: false
   head "https://github.com/woodpecker-ci/woodpecker.git", branch: "main"
 
   depends_on "go" => :build
 
   def install
     cd "cmd/cli" do
-      system "go", "build", "-trimpath", "-o", bin/"woodpecker"
+      system "go", "build", "-trimpath", *std_go_args(output: bin/"woodpecker-cli")
     end
   end
 
   test do
-    assert_match "woodpecker", shell_output("#{bin}/woodpecker --help")
+    out = shell_output("#{bin}/woodpecker-cli --help 2>&1")
+    assert_match "woodpecker-cli", out
   end
 end
