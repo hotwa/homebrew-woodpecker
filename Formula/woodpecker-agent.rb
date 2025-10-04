@@ -2,7 +2,7 @@ class WoodpeckerAgent < Formula
   desc "Woodpecker CI agent (exec runner) for macOS with brew services"
   homepage "https://woodpecker-ci.org/"
   license "Apache-2.0"
-  revision 2
+  revision 3
 
   # 使用 git 源码构建，免 sha256；如需锁定版本，可换 tag
   url "https://github.com/woodpecker-ci/woodpecker.git",
@@ -54,6 +54,7 @@ class WoodpeckerAgent < Formula
     (pkgshare/"launch.sh").write <<~SH
       #!/bin/sh
       set -e
+      export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
       # 先从 launchd 环境拿变量（若有就导出）
       for k in WOODPECKER_AGENT_NAME WOODPECKER_SERVER WOODPECKER_AGENT_SECRET \\
                WOODPECKER_GRPC_SECURE WOODPECKER_GRPC_VERIFY \\

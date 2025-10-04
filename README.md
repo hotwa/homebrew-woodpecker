@@ -145,6 +145,7 @@ launchctl getenv WOODPECKER_AGENT_NAME
 - 默认生成的 fallback `WOODPECKER_AGENT_NAME` 会对 macOS 的 ComputerName 做 slug 化（空格等会替换为 `-`），例如 `Mac mini` → `mac-mini`。
 - 默认将健康检查端口改为 `:3001`（通过 env），避免常见的 `:3000` 冲突。
 - 提供 `woodpecker-cli`、`plugin-git`、`plugin-s3`、`plugin-docker-buildx` 等 Formula，方便在本地 exec 后端装齐常用工具。
+- launch.sh 会预置 PATH（含 /opt/homebrew/bin），确保服务能找到 git-lfs、plugin-* 等依赖。
 - 该 Tap 仅安装 exec (native) agent。Docker runner 请使用容器方式。
 
 ---
