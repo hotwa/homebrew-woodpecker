@@ -13,12 +13,13 @@ class WoodpeckerCli < Formula
 
   def install
     cd "cmd/cli" do
-      system "go", "build", "-trimpath", *std_go_args(output: bin/"woodpecker-cli")
+      system "go", "build", "-trimpath", *std_go_args(output: bin/"woodpecker")
     end
+    bin.install_symlink "woodpecker" => "woodpecker-cli"
   end
 
   test do
-    out = shell_output("#{bin}/woodpecker-cli --help 2>&1")
-    assert_match "woodpecker-cli", out
+    out = shell_output("#{bin}/woodpecker --help 2>&1")
+    assert_match "woodpecker", out
   end
 end
