@@ -30,10 +30,23 @@ jobs:
           brew --version
           echo "跳过 brew update 以加快测试速度"
       
+      - name: 设置本地 tap
+        run: |
+          # 将当前仓库设置为本地 tap
+          REPO_PATH="${GITHUB_WORKSPACE}"
+          TAP_PATH="$(brew --repository)/Library/Taps/hotwa/homebrew-woodpecker"
+          
+          echo "📂 创建 tap 目录..."
+          mkdir -p "$(dirname "$TAP_PATH")"
+          ln -sf "$REPO_PATH" "$TAP_PATH"
+          
+          echo "✅ Tap 设置完成"
+          ls -la "$TAP_PATH/Formula/" | head -10
+      
       - name: 测试 woodpecker-cli 构建
         run: |
           echo "📦 测试构建 woodpecker-cli..."
-          brew install --build-from-source --verbose ./Formula/woodpecker-cli.rb
+          brew install --build-from-source --verbose hotwa/woodpecker/woodpecker-cli
           
           echo "✅ 验证安装..."
           woodpecker-cli --version || woodpecker --version
@@ -44,24 +57,24 @@ jobs:
       - name: 测试 woodpecker-plugin 构建
         run: |
           echo "📦 测试构建 woodpecker-plugin-git..."
-          brew install --build-from-source --verbose ./Formula/woodpecker-plugin-git.rb
+          brew install --build-from-source --verbose hotwa/woodpecker/woodpecker-plugin-git
           woodpecker-plugin-git --version
           brew uninstall woodpecker-plugin-git
           
           echo "📦 测试构建 woodpecker-plugin-s3..."
-          brew install --build-from-source --verbose ./Formula/woodpecker-plugin-s3.rb
+          brew install --build-from-source --verbose hotwa/woodpecker/woodpecker-plugin-s3
           woodpecker-plugin-s3 --version
           brew uninstall woodpecker-plugin-s3
           
           echo "📦 测试构建 woodpecker-plugin-docker-buildx..."
-          brew install --build-from-source --verbose ./Formula/woodpecker-plugin-docker-buildx.rb
+          brew install --build-from-source --verbose hotwa/woodpecker/woodpecker-plugin-docker-buildx
           woodpecker-plugin-docker-buildx --version
           brew uninstall woodpecker-plugin-docker-buildx
       
       - name: 测试 woodpecker-agent 构建
         run: |
           echo "📦 测试构建 woodpecker-agent（含所有依赖）..."
-          brew install --build-from-source --verbose ./Formula/woodpecker-agent.rb
+          brew install --build-from-source --verbose hotwa/woodpecker/woodpecker-agent
           
           echo "✅ 验证安装..."
           woodpecker-agent --version
