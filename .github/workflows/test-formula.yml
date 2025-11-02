@@ -17,8 +17,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - macos-14      # Apple Silicon (M1/M2)
-          - macos-13      # Intel
+          - macos-14      # Apple Silicon (M1/M2/M3/M4)
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -29,7 +28,7 @@ jobs:
         run: |
           echo "🍺 Homebrew 版本:"
           brew --version
-          brew update
+          echo "跳过 brew update 以加快测试速度"
       
       - name: 测试 woodpecker-cli 构建
         run: |
