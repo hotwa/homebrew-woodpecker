@@ -130,41 +130,29 @@ jobs:
           ruby -c Formula/woodpecker-cli.rb
           echo "✅ 语法检查通过"
       
-      - name: 提交更新到 auto-sync 分支
-        if: steps.compare.outputs.needs_update == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add Formula/*.rb
-          git commit -m "chore: 自动更新 Woodpecker 到 ${{ steps.upstream.outputs.latest_tag }}
-
-          自动更新上游版本：
-          ${{ steps.compare.outputs.changes }}
-          
-          - woodpecker-agent: ${{ steps.upstream.outputs.latest_tag }}
-          - woodpecker-cli: commit ${{ steps.upstream.outputs.main_commit }}
-          
-          🤖 由 GitHub Actions 自动提交到 auto-sync 分支"
-          
-          git push origin auto-sync
-          
-          echo "✅ 已提交更新到 auto-sync 分支"
-      
       - name: 创建 Pull Request 到 main
         if: steps.compare.outputs.needs_update == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            chore: 自动更新 Woodpecker 到 ${{ steps.upstream.outputs.latest_tag }}
+            
+            自动更新上游版本：
+            ${{ steps.compare.outputs.changes }}
+            
+            - woodpecker-agent: ${{ steps.upstream.outputs.latest_tag }}
+            - woodpecker-cli: commit ${{ steps.upstream.outputs.main_commit }}
+            
+            🤖 由 GitHub Actions 自动提交
           branch: auto-sync
           base: main
+          delete-branch: false
           title: '🤖 [auto-sync → main] 更新 Woodpecker 到 ${{ steps.upstream.outputs.latest_tag }}'
           body: |
             ## 📦 自动版本更新
             
-            此 PR 由 GitHub Actions 自动创建，从 `auto-sync` 分支同步到 `main` 分支。
-            
-            `auto-sync` 分支已自动更新到上游最新版本。
+            此 PR 由 GitHub Actions 自动创建，将上游最新版本更新到仓库。
             
             ### 变更内容
             ${{ steps.compare.outputs.changes }}
@@ -175,22 +163,23 @@ jobs:
             - **Changelog**: https://github.com/woodpecker-ci/woodpecker/releases/tag/${{ steps.upstream.outputs.latest_tag }}
             
             ### 分支策略
-            - 🔄 `auto-sync` 分支：自动跟随上游最新版本
+            - 🔄 `auto-sync` 分支：自动跟随上游最新版本，自动更新
             - 🎯 `main` 分支：手动审核后的稳定版本
             
             ### 测试建议
-            合并前请在本地测试 auto-sync 分支：
+            合并前请在本地测试：
             ```bash
-            # 切换到 auto-sync 分支
+            # 切换到此 PR 的分支
             git fetch origin
             git checkout auto-sync
+            git pull origin auto-sync
             
             # 测试构建
             brew uninstall woodpecker-agent 2>/dev/null || true
             brew install --build-from-source ./Formula/woodpecker-agent.rb
             woodpecker-agent --version
             
-            # 测试运行
+            # 测试运行（可选）
             brew services start woodpecker-agent
             sleep 5
             brew services stop woodpecker-agent
@@ -200,8 +189,9 @@ jobs:
             ```
             
             ### 自动检查
+            - ✅ 检测到上游新版本
+            - ✅ Formula 文件已更新
             - ✅ Ruby 语法检查通过
-            - ✅ 已提交到 auto-sync 分支
             - ⏳ 等待人工审核合并到 main
             
             ### 如何使用
@@ -231,7 +221,8 @@ jobs:
         if: always()
         run: |
           if [ "${{ steps.compare.outputs.needs_update }}" == "true" ]; then
-            echo "✅ 成功创建更新 PR"
+            echo "✅ 已更新 Formula 文件并创建 PR"
+            echo "📋 请查看 Pull Requests 页面审核并合并"
           else
             echo "ℹ️  无需更新，当前已是最新版本"
           fi
