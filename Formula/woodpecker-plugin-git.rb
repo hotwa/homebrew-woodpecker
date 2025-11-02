@@ -13,6 +13,7 @@ class WoodpeckerPluginGit < Formula
 
   def install
     system "go", "build", "-trimpath", *std_go_args(output: bin/"plugin-git")
+    bin.install_symlink "plugin-git" => "woodpecker-plugin-git"
   end
 
   test do

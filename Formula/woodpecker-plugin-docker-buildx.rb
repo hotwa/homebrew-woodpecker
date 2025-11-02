@@ -15,6 +15,7 @@ class WoodpeckerPluginDockerBuildx < Formula
     cd "cmd/docker-buildx" do
       system "go", "build", "-trimpath", *std_go_args(output: bin/"plugin-docker-buildx")
     end
+    bin.install_symlink "plugin-docker-buildx" => "woodpecker-plugin-docker-buildx"
   end
 
   test do

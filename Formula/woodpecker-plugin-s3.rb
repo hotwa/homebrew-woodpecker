@@ -13,6 +13,7 @@ class WoodpeckerPluginS3 < Formula
 
   def install
     system "go", "build", "-trimpath", *std_go_args(output: bin/"plugin-s3")
+    bin.install_symlink "plugin-s3" => "woodpecker-plugin-s3"
   end
 
   test do
