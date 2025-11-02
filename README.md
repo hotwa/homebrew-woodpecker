@@ -50,46 +50,173 @@ launchctl setenv WOODPECKER_HEALTHCHECK_ADDR :3001
 `launchctl getenv VAR` 可检查是否写入成功。
 这些变量对本次开机周期有效，若需开机后自动注入，见 `extras/setenv.sh` + `extras/com.example.woodpecker.setenv.plist`。
 
-**方案 B：编辑兜底文件 agent.env**
+**方案 B：编辑兜底文件 agent.env（推荐用于持久化配置）**
+
+配置文件位置：`/opt/homebrew/etc/woodpecker/agent.env`
 
 ```bash
-# 安装后生成的默认位置（首次安装已写好样例）
+# 编辑配置文件
 vi "$(brew --prefix)/etc/woodpecker/agent.env"
-# 写入必要变量（示例）
-cat >"$(brew --prefix)/etc/woodpecker/agent.env" <<'EOF'
-WOODPECKER_AGENT_NAME=macos-m1-01
-WOODPECKER_SERVER=ci-agent.jmsu.top:443
-WOODPECKER_AGENT_SECRET=***************
-WOODPECKER_GRPC_SECURE=true
-WOODPECKER_GRPC_VERIFY=true
-# 可选：标签与并发
-WOODPECKER_MAX_PROCS=1
-WOODPECKER_FILTER_LABELS=gpu=false,os=macos,arch=arm64
-# 切换后端为 Local（exec）
-WOODPECKER_BACKEND=local
-EOF
-# 或拷贝样例：
-# cp extras/agent.env.sample "$(brew --prefix)/etc/woodpecker/agent.env"
 ```
 
-修改后重启
+**完整配置示例**：
 
 ```bash
+# Fallback envs for woodpecker-agent (exec).
+# 启动脚本会先读 launchctl getenv，再读本文件中未定义的变量。
+
+# === 必需配置 ===
+WOODPECKER_AGENT_NAME=Mac-mini                    # Agent 名称（建议使用主机名）
+WOODPECKER_SERVER=ci-agent.jmsu.top:443          # Woodpecker Server 地址
+WOODPECKER_AGENT_SECRET=YOUR_SECRET_HERE         # Agent 密钥（从 Server 获取）
+
+# === 连接配置 ===
+WOODPECKER_GRPC_SECURE=true                       # 使用 TLS 加密连接
+WOODPECKER_GRPC_VERIFY=true                       # 验证服务器证书
+
+# === 执行配置 ===
+WOODPECKER_BACKEND=local                          # 使用本地（exec）后端
+WOODPECKER_MAX_WORKFLOWS=1                        # 最大并发流水线数
+
+# === Agent 标签 ===
+# 用于流水线选择此 Agent
+WOODPECKER_AGENT_LABELS=platform=darwin/arm64,gpu=metal,host=Mac-mini.local
+
+# === 健康检查 ===
+WOODPECKER_HEALTHCHECK_ADDR=:3001                 # 健康检查端口（避免 3000 冲突）
+
+# === 可选：PATH 配置 ===
+# 一般不需要手动设置，启动脚本已预置
+#PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+```
+
+**配置说明**：
+
+| 配置项 | 说明 | 必需 | 示例值 |
+|--------|------|------|--------|
+| `WOODPECKER_AGENT_NAME` | Agent 标识名称 | ✅ | `Mac-mini` 或 `macos-m4-01` |
+| `WOODPECKER_SERVER` | Server 地址 | ✅ | `ci.example.com:443` 或 `192.168.1.100:9000` |
+| `WOODPECKER_AGENT_SECRET` | Agent 密钥 | ✅ | 从 Woodpecker Server 管理界面获取 |
+| `WOODPECKER_GRPC_SECURE` | 是否使用 TLS | 推荐 | `true`（HTTPS）或 `false`（HTTP） |
+| `WOODPECKER_GRPC_VERIFY` | 是否验证证书 | 推荐 | `true`（验证）或 `false`（自签证书） |
+| `WOODPECKER_BACKEND` | 执行后端类型 | ✅ | `local`（exec 模式） |
+| `WOODPECKER_MAX_WORKFLOWS` | 并发数 | 可选 | `1`（单任务）或 `2`（双任务） |
+| `WOODPECKER_AGENT_LABELS` | Agent 标签 | 可选 | `platform=darwin/arm64,gpu=metal` |
+| `WOODPECKER_HEALTHCHECK_ADDR` | 健康检查地址 | 可选 | `:3001`（避免 3000 端口冲突） |
+
+**注意事项**：
+- 如果值包含空格，使用双引号包裹：`WOODPECKER_AGENT_NAME="Mac mini"`
+- 启动脚本会**先读 launchctl 环境变量，再读此文件**
+- 已存在的 launchctl 变量**不会被此文件覆盖**
+- 修改后需要重启服务生效
+
+**修改后重启服务**：
+
+```bash
+brew services restart hotwa/woodpecker/woodpecker-agent
+# 或简写（如果只安装了 woodpecker-agent）
 brew services restart woodpecker-agent
+
+# 查看日志确认启动成功
+tail -f /opt/homebrew/var/log/woodpecker/agent.log
 tail -f /opt/homebrew/var/log/woodpecker/agent.err.log
 ```
 
-启动脚本会“先读 launchctl，再读这个文件”，已有的变量不会被 env 文件覆盖。
-如果某个值包含空格，请确保使用 ASCII 双引号包裹，例如 `WOODPECKER_AGENT_NAME="Mac mini"`。
-
 ## 3) 启动/日志/管理
 
+### 服务管理命令
+
 ```bash
-brew services start  woodpecker-agent   # 登录后自启
+# 启动服务（用户登录后自动启动）
+brew services start woodpecker-agent
+# 或使用完整名称
+brew services start hotwa/woodpecker/woodpecker-agent
+
+# 重启服务（修改配置后需要重启）
 brew services restart woodpecker-agent
-brew services stop    woodpecker-agent
-tail -f  "$(brew --prefix)/var/log/woodpecker/agent.log"
-tail -f  "$(brew --prefix)/var/log/woodpecker/agent.err.log"
+
+# 停止服务
+brew services stop woodpecker-agent
+
+# 查看服务状态
+brew services list
+brew services info woodpecker-agent
+```
+
+### 开机自启动配置
+
+**Homebrew Services 自动管理 LaunchAgent**：
+
+安装后，Homebrew 会自动创建 LaunchAgent plist 文件：
+- 位置：`~/Library/LaunchAgents/homebrew.mxcl.woodpecker-agent.plist`
+- 类型：用户级 LaunchAgent（登录后启动）
+- 管理：通过 `brew services` 命令
+
+**启用开机自启动**：
+
+```bash
+# 启动服务并设置为开机自动启动
+brew services start hotwa/woodpecker/woodpecker-agent
+
+# 验证服务状态
+brew services list | grep woodpecker
+# 应该显示: woodpecker-agent started <用户名> ~/Library/LaunchAgents/homebrew.mxcl.woodpecker-agent.plist
+
+# 确认服务正在运行
+ps aux | grep woodpecker-agent
+```
+
+**服务特性**：
+- ✅ **用户登录后自动启动** - 无需 root 权限
+- ✅ **崩溃自动重启** - LaunchAgent 会自动重启崩溃的服务
+- ✅ **日志自动管理** - 日志文件自动轮转
+- ✅ **环境变量隔离** - 每个用户有独立的环境配置
+
+**禁用开机自启动**：
+
+```bash
+# 停止服务并禁用自启动
+brew services stop woodpecker-agent
+
+# 服务将不再随用户登录启动
+```
+
+### 日志管理
+
+```bash
+# 查看标准输出日志
+tail -f /opt/homebrew/var/log/woodpecker/agent.log
+
+# 查看错误日志
+tail -f /opt/homebrew/var/log/woodpecker/agent.err.log
+
+# 查看最近 100 行日志
+tail -n 100 /opt/homebrew/var/log/woodpecker/agent.log
+
+# 实时监控错误（推荐）
+tail -f /opt/homebrew/var/log/woodpecker/agent.err.log
+```
+
+### 故障排查
+
+```bash
+# 1. 检查服务状态
+brew services list | grep woodpecker
+
+# 2. 查看进程
+ps aux | grep woodpecker-agent
+
+# 3. 检查日志错误
+cat /opt/homebrew/var/log/woodpecker/agent.err.log | tail -50
+
+# 4. 测试配置
+cat /opt/homebrew/etc/woodpecker/agent.env
+
+# 5. 手动启动测试（调试用）
+/opt/homebrew/share/woodpecker-agent/launch.sh
+
+# 6. 检查网络连接
+nc -zv ci-agent.jmsu.top 443
 ```
 
 ## 4) 在流水线中选中 macOS + Metal
@@ -173,6 +300,7 @@ launchctl getenv WOODPECKER_AGENT_NAME
 brew tap hotwa/woodpecker
 brew install woodpecker-agent
 
+brew upgrade woodpecker-agent
 # 定期更新
 brew update
 brew upgrade woodpecker-agent
