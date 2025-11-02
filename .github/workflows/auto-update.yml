@@ -1,0 +1,238 @@
+name: Auto Update Woodpecker Formulae
+
+on:
+  schedule:
+    # 每天 UTC 02:00 检查（北京时间 10:00）
+    - cron: '0 2 * * *'
+  workflow_dispatch: # 允许手动触发
+    inputs:
+      force_update:
+        description: '强制更新（即使版本相同）'
+        required: false
+        default: 'false'
+  push:
+    branches:
+      - auto-sync  # auto-sync 分支推送时也触发
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout 本仓库
+        uses: actions/checkout@v4
+        with:
+          ref: auto-sync  # 检出 auto-sync 分支
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 获取上游最新版本
+        id: upstream
+        run: |
+          # 获取最新的 release tag
+          LATEST_TAG=$(curl -s https://api.github.com/repos/woodpecker-ci/woodpecker/releases/latest | jq -r '.tag_name')
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "latest_version=${LATEST_TAG#v}" >> $GITHUB_OUTPUT
+          echo "📦 上游最新版本: ${LATEST_TAG}"
+          
+          # 获取 main 分支最新 commit（用于 CLI）
+          MAIN_COMMIT=$(git ls-remote https://github.com/woodpecker-ci/woodpecker.git refs/heads/main | cut -f1)
+          echo "main_commit=${MAIN_COMMIT}" >> $GITHUB_OUTPUT
+          echo "🔖 Main 分支 commit: ${MAIN_COMMIT}"
+      
+      - name: 检查当前版本
+        id: current
+        run: |
+          # 从 woodpecker-agent.rb 提取当前版本
+          CURRENT_TAG=$(grep -E '^\s+tag:\s+' Formula/woodpecker-agent.rb | sed -E 's/.*"(.*)".*/\1/')
+          echo "current_tag=${CURRENT_TAG}" >> $GITHUB_OUTPUT
+          echo "current_version=${CURRENT_TAG#v}" >> $GITHUB_OUTPUT
+          echo "📌 当前版本: ${CURRENT_TAG}"
+          
+          # 从 woodpecker-cli.rb 提取当前 commit
+          CURRENT_COMMIT=$(grep -E '^\s+revision:\s+' Formula/woodpecker-cli.rb | sed -E 's/.*"(.*)".*/\1/')
+          echo "current_commit=${CURRENT_COMMIT}" >> $GITHUB_OUTPUT
+          echo "📌 当前 CLI commit: ${CURRENT_COMMIT}"
+      
+      - name: 比较版本
+        id: compare
+        run: |
+          NEEDS_UPDATE=false
+          CHANGES=""
+          
+          # 检查 agent 版本
+          if [ "${{ steps.current.outputs.current_tag }}" != "${{ steps.upstream.outputs.latest_tag }}" ]; then
+            NEEDS_UPDATE=true
+            CHANGES="${CHANGES}• woodpecker-agent: ${{ steps.current.outputs.current_tag }} → ${{ steps.upstream.outputs.latest_tag }}\n"
+          fi
+          
+          # 检查 CLI commit
+          if [ "${{ steps.current.outputs.current_commit }}" != "${{ steps.upstream.outputs.main_commit }}" ]; then
+            NEEDS_UPDATE=true
+            CHANGES="${CHANGES}• woodpecker-cli: commit 更新\n"
+          fi
+          
+          # 手动强制更新
+          if [ "${{ github.event.inputs.force_update }}" == "true" ]; then
+            NEEDS_UPDATE=true
+            CHANGES="${CHANGES}• 手动强制更新\n"
+          fi
+          
+          echo "needs_update=${NEEDS_UPDATE}" >> $GITHUB_OUTPUT
+          echo -e "changes<<EOF" >> $GITHUB_OUTPUT
+          echo -e "${CHANGES}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          if [ "${NEEDS_UPDATE}" == "true" ]; then
+            echo "✅ 发现新版本，需要更新"
+          else
+            echo "ℹ️  已是最新版本，无需更新"
+          fi
+      
+      - name: 更新 Formula 文件
+        if: steps.compare.outputs.needs_update == 'true'
+        run: |
+          LATEST_TAG="${{ steps.upstream.outputs.latest_tag }}"
+          LATEST_VERSION="${{ steps.upstream.outputs.latest_version }}"
+          MAIN_COMMIT="${{ steps.upstream.outputs.main_commit }}"
+          DATE_VERSION=$(date +%Y%m%d)
+          
+          # 更新 woodpecker-agent.rb
+          echo "📝 更新 woodpecker-agent.rb..."
+          
+          # 获取当前 revision 并递增
+          CURRENT_REVISION=$(grep -E '^\s+revision\s+' Formula/woodpecker-agent.rb | sed -E 's/.*revision\s+([0-9]+).*/\1/')
+          NEW_REVISION=$((CURRENT_REVISION + 1))
+          
+          # 更新 tag
+          sed -i.bak -E "s|(tag:\s+)\".+\"|\1\"${LATEST_TAG}\"|" Formula/woodpecker-agent.rb
+          
+          # 更新 revision
+          sed -i.bak -E "s|(revision\s+)[0-9]+|\1${NEW_REVISION}|" Formula/woodpecker-agent.rb
+          
+          # 更新 woodpecker-cli.rb
+          echo "📝 更新 woodpecker-cli.rb..."
+          sed -i.bak -E "s|(revision:\s+)\".+\"|\1\"${MAIN_COMMIT}\"|" Formula/woodpecker-cli.rb
+          sed -i.bak -E "s|(version\s+)\".+\"|\1\"${DATE_VERSION}\"|" Formula/woodpecker-cli.rb
+          
+          # 清理备份文件
+          rm -f Formula/*.bak
+          
+          echo "✅ Formula 文件更新完成"
+      
+      - name: 验证 Formula 语法
+        if: steps.compare.outputs.needs_update == 'true'
+        run: |
+          echo "🔍 检查 Ruby 语法..."
+          ruby -c Formula/woodpecker-agent.rb
+          ruby -c Formula/woodpecker-cli.rb
+          echo "✅ 语法检查通过"
+      
+      - name: 提交更新到 auto-sync 分支
+        if: steps.compare.outputs.needs_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add Formula/*.rb
+          git commit -m "chore: 自动更新 Woodpecker 到 ${{ steps.upstream.outputs.latest_tag }}
+
+          自动更新上游版本：
+          ${{ steps.compare.outputs.changes }}
+          
+          - woodpecker-agent: ${{ steps.upstream.outputs.latest_tag }}
+          - woodpecker-cli: commit ${{ steps.upstream.outputs.main_commit }}
+          
+          🤖 由 GitHub Actions 自动提交到 auto-sync 分支"
+          
+          git push origin auto-sync
+          
+          echo "✅ 已提交更新到 auto-sync 分支"
+      
+      - name: 创建 Pull Request 到 main
+        if: steps.compare.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: auto-sync
+          base: main
+          title: '🤖 [auto-sync → main] 更新 Woodpecker 到 ${{ steps.upstream.outputs.latest_tag }}'
+          body: |
+            ## 📦 自动版本更新
+            
+            此 PR 由 GitHub Actions 自动创建，从 `auto-sync` 分支同步到 `main` 分支。
+            
+            `auto-sync` 分支已自动更新到上游最新版本。
+            
+            ### 变更内容
+            ${{ steps.compare.outputs.changes }}
+            
+            ### 上游信息
+            - **最新版本**: [${{ steps.upstream.outputs.latest_tag }}](https://github.com/woodpecker-ci/woodpecker/releases/tag/${{ steps.upstream.outputs.latest_tag }})
+            - **Release 页面**: https://github.com/woodpecker-ci/woodpecker/releases/latest
+            - **Changelog**: https://github.com/woodpecker-ci/woodpecker/releases/tag/${{ steps.upstream.outputs.latest_tag }}
+            
+            ### 分支策略
+            - 🔄 `auto-sync` 分支：自动跟随上游最新版本
+            - 🎯 `main` 分支：手动审核后的稳定版本
+            
+            ### 测试建议
+            合并前请在本地测试 auto-sync 分支：
+            ```bash
+            # 切换到 auto-sync 分支
+            git fetch origin
+            git checkout auto-sync
+            
+            # 测试构建
+            brew uninstall woodpecker-agent 2>/dev/null || true
+            brew install --build-from-source ./Formula/woodpecker-agent.rb
+            woodpecker-agent --version
+            
+            # 测试运行
+            brew services start woodpecker-agent
+            sleep 5
+            brew services stop woodpecker-agent
+            
+            # 切回 main
+            git checkout main
+            ```
+            
+            ### 自动检查
+            - ✅ Ruby 语法检查通过
+            - ✅ 已提交到 auto-sync 分支
+            - ⏳ 等待人工审核合并到 main
+            
+            ### 如何使用
+            **用户如果想使用最新版**：
+            ```bash
+            # 使用 auto-sync 分支（最新版）
+            brew tap hotwa/woodpecker https://github.com/hotwa/homebrew-woodpecker.git
+            brew install hotwa/woodpecker/woodpecker-agent
+            ```
+            
+            **用户如果想使用稳定版**：
+            ```bash
+            # 等待此 PR 合并到 main 后使用
+            brew update
+            brew upgrade woodpecker-agent
+            ```
+            
+            ---
+            🤖 由 [Auto Update Workflow](.github/workflows/auto-update.yml) 自动生成
+          labels: |
+            automated
+            dependencies
+            enhancement
+            auto-sync
+      
+      - name: 输出结果
+        if: always()
+        run: |
+          if [ "${{ steps.compare.outputs.needs_update }}" == "true" ]; then
+            echo "✅ 成功创建更新 PR"
+          else
+            echo "ℹ️  无需更新，当前已是最新版本"
+          fi
+

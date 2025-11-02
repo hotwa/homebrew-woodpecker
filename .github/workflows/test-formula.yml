@@ -1,0 +1,87 @@
+name: Test Formula Build
+
+on:
+  pull_request:
+    paths:
+      - 'Formula/**'
+  push:
+    branches:
+      - main
+      - auto-sync  # 也测试 auto-sync 分支
+    paths:
+      - 'Formula/**'
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    strategy:
+      matrix:
+        os:
+          - macos-14      # Apple Silicon (M1/M2)
+          - macos-13      # Intel
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+      
+      - name: 设置 Homebrew
+        run: |
+          echo "🍺 Homebrew 版本:"
+          brew --version
+          brew update
+      
+      - name: 测试 woodpecker-cli 构建
+        run: |
+          echo "📦 测试构建 woodpecker-cli..."
+          brew install --build-from-source --verbose ./Formula/woodpecker-cli.rb
+          
+          echo "✅ 验证安装..."
+          woodpecker-cli --version || woodpecker --version
+          
+          echo "🧹 清理..."
+          brew uninstall woodpecker-cli
+      
+      - name: 测试 woodpecker-plugin 构建
+        run: |
+          echo "📦 测试构建 woodpecker-plugin-git..."
+          brew install --build-from-source --verbose ./Formula/woodpecker-plugin-git.rb
+          woodpecker-plugin-git --version
+          brew uninstall woodpecker-plugin-git
+          
+          echo "📦 测试构建 woodpecker-plugin-s3..."
+          brew install --build-from-source --verbose ./Formula/woodpecker-plugin-s3.rb
+          woodpecker-plugin-s3 --version
+          brew uninstall woodpecker-plugin-s3
+          
+          echo "📦 测试构建 woodpecker-plugin-docker-buildx..."
+          brew install --build-from-source --verbose ./Formula/woodpecker-plugin-docker-buildx.rb
+          woodpecker-plugin-docker-buildx --version
+          brew uninstall woodpecker-plugin-docker-buildx
+      
+      - name: 测试 woodpecker-agent 构建
+        run: |
+          echo "📦 测试构建 woodpecker-agent（含所有依赖）..."
+          brew install --build-from-source --verbose ./Formula/woodpecker-agent.rb
+          
+          echo "✅ 验证安装..."
+          woodpecker-agent --version
+          
+          echo "✅ 检查配置文件..."
+          ls -la $(brew --prefix)/etc/woodpecker/
+          
+          echo "✅ 检查启动脚本..."
+          ls -la $(brew --prefix)/share/woodpecker-agent/
+          
+          echo "🧹 清理..."
+          brew uninstall woodpecker-agent
+      
+      - name: 输出构建信息
+        if: always()
+        run: |
+          echo "📊 系统信息:"
+          sw_vers
+          echo ""
+          echo "🔧 架构: $(uname -m)"
+          echo "💻 Go 版本: $(brew list --versions go)"
+

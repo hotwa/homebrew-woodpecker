@@ -146,6 +146,64 @@ launchctl getenv WOODPECKER_AGENT_NAME
 - launch.sh 会预置 PATH（含 /opt/homebrew/bin），确保服务能找到 git-lfs、plugin-* 等依赖。
 - 该 Tap 仅安装 exec (native) agent。Docker runner 请使用容器方式。
 
+## 🤖 自动化更新 & 分支策略
+
+本仓库采用**双分支自动化策略**，平衡稳定性与新鲜度：
+
+### 🌳 分支说明
+
+| 分支 | 用途 | 更新方式 | 推荐用户 |
+|------|------|----------|----------|
+| **`main`** | 稳定版本，经过审核 | 人工审核 PR | ✅ 生产环境 |
+| **`auto-sync`** | 最新版本，自动跟随上游 | 自动同步 | 🔬 尝鲜用户 |
+
+### ✨ 自动化特性
+
+- ✅ **每天自动检查**上游是否有新 release（北京时间 10:00）
+- ✅ **自动更新 `auto-sync` 分支**到最新版本
+- ✅ **自动创建 PR** 从 `auto-sync` → `main`
+- ✅ **自动测试构建**（在 Apple Silicon 和 Intel Mac 上）
+- ✅ **支持手动触发**立即检查更新
+
+### 📦 用户使用
+
+**方式 1: 使用稳定版（推荐）**
+```bash
+# 默认使用 main 分支
+brew tap hotwa/woodpecker
+brew install woodpecker-agent
+
+# 定期更新
+brew update
+brew upgrade woodpecker-agent
+```
+
+**方式 2: 使用最新版**
+```bash
+# 使用 auto-sync 分支
+cd $(brew --repo hotwa/woodpecker)
+git checkout auto-sync
+brew reinstall woodpecker-agent
+```
+
+### 🔄 工作流程
+
+```
+上游发布新版本
+    ↓ 自动（最晚 24h）
+auto-sync 分支自动更新
+    ↓ 自动创建 PR
+等待人工审核
+    ↓ 合并 PR
+main 分支更新
+    ↓ 用户更新
+brew upgrade
+```
+
+详细说明请查看：
+- [分支策略文档](.github/BRANCH-STRATEGY.md)
+- [自动化详细文档](.github/AUTOMATION.md)
+
 ---
 
 ## 使用说明（快速复习）
