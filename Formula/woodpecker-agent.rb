@@ -2,11 +2,11 @@ class WoodpeckerAgent < Formula
   desc "Woodpecker CI agent (exec runner) for macOS with brew services"
   homepage "https://woodpecker-ci.org/"
   license "Apache-2.0"
-  revision 115
+  revision 122
 
   # 使用 git 源码构建，免 sha256；如需锁定版本，可换 tag
   url "https://github.com/woodpecker-ci/woodpecker.git",
-      tag:      "v3.13.0",
+      tag:      "null",
       shallow:  false
   head "https://github.com/woodpecker-ci/woodpecker.git", branch: "main"
 
