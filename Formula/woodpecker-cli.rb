@@ -5,8 +5,8 @@ class WoodpeckerCli < Formula
 
   url "https://github.com/woodpecker-ci/woodpecker.git",
       using:  :git,
-      revision: "8c3233bc8a6d81c6294d77433e55901a16b2162d"
-  version "20260502"
+      revision: "147a7a8e7fe5a03edd456b7f28779beccdb117fd"
+  version "20261024"
   head "https://github.com/woodpecker-ci/woodpecker.git", branch: "main"
 
   depends_on "go" => :build
